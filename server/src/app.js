@@ -8,6 +8,7 @@ const { requireAuth, requireRole } = require("./middleware/auth");
 const authController = require("./controllers/authController");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
+const schemeRoutes = require("./routes/schemes");
 
 function createApp() {
   const app = express();
@@ -28,6 +29,7 @@ function createApp() {
   });
 
   app.use("/api/auth", authLimiter, authRoutes);
+  app.use("/api/schemes", schemeRoutes);
   app.get("/api/me", requireAuth, authController.me);
   app.use("/api/admin", requireAuth, requireRole("admin"), adminRoutes);
 
