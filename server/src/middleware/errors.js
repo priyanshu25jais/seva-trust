@@ -11,11 +11,19 @@ function errorHandler(err, _req, res, _next) {
     });
   }
 
+  if (err.code === 11000) {
+    return res.status(409).json({
+      error: "conflict",
+      message: "Already exists",
+    });
+  }
+
   const status = err.status || 500;
   const message = status === 500 ? "Server error" : err.message;
   if (status === 500) {
     console.error(err);
   }
+
   return res.status(status).json({ error: err.code || "error", message });
 }
 
