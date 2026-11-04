@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "description": "Seva Trust API",
-  "main": "src/index.js",
+  "main": "src/server.js",
   "scripts": {
-    "dev": "node --watch src/index.js",
-    "start": "node src/index.js",
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
     "test": "jest --runInBand",
-    "seed": "node src/scripts/seed.js"
+    "seed": "node src/scripts/seed.js",
+    "pdf-smoke": "node ../scripts/pdf-smoke.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -19,11 +20,13 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.1",
+    "pdfkit": "^0.15.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "jest": "^29.7.0",
     "mongodb-memory-server": "^10.1.2",
+    "nodemon": "^3.1.14",
     "supertest": "^7.0.0"
   }
 }

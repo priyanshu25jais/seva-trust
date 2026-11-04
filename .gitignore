@@ -7,3 +7,5 @@ coverage/
 .vscode/
 client/dist/
 server/coverage/
+server/tmp/
+scripts/out/

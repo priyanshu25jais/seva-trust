@@ -1,0 +1,44 @@
+:root {
+  --accent: #9a3412;
+  --text: #1c1917;
+  --bg: #ffffff;
+}
+
+html {
+  font-size: 18px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Noto Sans Devanagari", "Noto Sans", system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+h1 {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+button {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 1rem;
+  font-size: 1rem;
+  color: #ffffff;
+  background: var(--accent);
+  border: 0;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 2px;
+}

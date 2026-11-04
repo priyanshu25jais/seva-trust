@@ -1,0 +1,10 @@
+{
+  "name": "seva-trust",
+  "private": true,
+  "scripts": {
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "test": "npm test --prefix server",
+    "pdf-smoke": "node scripts/pdf-smoke.js"
+  }
+}

@@ -26,13 +26,25 @@ React + Vite, Node + Express, MongoDB + Mongoose, JWT, zod, Jest + supertest.
    npm run dev
    ```
 
-3. Client:
+3. Client (Vite React, Hindi default via react-i18next):
 
    ```bash
    cd client
    npm install
    npm run dev
    ```
+
+   Open http://localhost:5173 — you should see a Hindi heading and a language toggle.
+   `/api` requests are proxied to the server at http://localhost:4000.
+
+4. PDF Hindi smoke check (needs Noto Sans Devanagari under `server/assets/fonts/`):
+
+   ```bash
+   cd server
+   npm run pdf-smoke
+   ```
+
+   Writes `scripts/out/smoke.pdf`.
 
 Seed admin: `admin@seva.example` / `ChangeMeAdmin1`  
 Seed donor: `donor@seva.example` / `ChangeMeDonor1`
