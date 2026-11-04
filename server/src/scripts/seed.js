@@ -553,6 +553,9 @@ function buildFakeDonors(passwordHash) {
 }
 
 async function seed() {
+  if (process.env.SEED_RESET !== "true") {
+    throw new Error("Refusing to delete database data. Set SEED_RESET=true only for a disposable demo database.");
+  }
   await connectDb();
   await clearCollections();
 

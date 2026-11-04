@@ -6,7 +6,7 @@ function loadEnv() {
       NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
       PORT: z.coerce.number().int().positive().default(4000),
       MONGODB_URI: z.string().min(1).default("mongodb://127.0.0.1:27017/seva-trust"),
-      JWT_SECRET: z.string().min(8).default("test-only-jwt-secret-do-not-use"),
+      JWT_SECRET: z.string().min(32).default("development-only-secret-change-before-deploy-123456"),
       JWT_EXPIRES_IN: z.string().default("7d"),
       TRUST_PAN: z.string().min(1).default("AAAAA0000A"),
       TRUST_80G_NUMBER: z.string().min(1).default("PLACEHOLDER80G"),

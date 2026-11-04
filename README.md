@@ -1,65 +1,54 @@
-# Seva Trust — Hindi-first NGO support platform
+# Seva Trust
 
-An internship project prototype for a charitable trust. It combines a women's welfare scheme directory, rule-based eligibility pre-screening, donor accounts and a donation/receipt workflow (donation workflow is the next implementation phase).
+Illustrative donation platform for a charitable trust in Bhopal, Madhya Pradesh. The product is Hindi-first. Scheme pages and eligibility results are informational only.
+
+## What it does
+
+- Women’s schemes on the home page, each with a source link and last-checked date
+- Eligibility finder that reports a **possible match** and the rules used — never a promise
+- Donations in at most three steps, with a mocked payment and an instant 80G-style receipt
+- Roles: visitor (no login), donor, admin — enforced on the server
 
 ## Stack
-- Client: React 18, Vite, React Router, react-i18next
-- API: Node.js, Express, Mongoose, Zod, JWT
-- Database: MongoDB
-- Tests: Jest, Supertest, mongodb-memory-server
-- PDFs: PDFKit with Noto Sans Devanagari
 
-## Run locally
+React + Vite, Node + Express, MongoDB + Mongoose, JWT, zod, Jest + supertest.
 
-1. Install a recent Node.js LTS and MongoDB (local or hosted free tier).
-2. Copy `.env.example` to `.env` in the project root. Set a long random `JWT_SECRET` and your MongoDB URI. Keep trust identifiers as placeholders for the demo.
-3. Start the API:
+## Setup
+
+1. Copy `.env.example` to `.env` in this folder and in `server/` if you prefer a local copy. Fill `MONGODB_URI` and `JWT_SECRET`. Keep `TRUST_PAN` and `TRUST_80G_NUMBER` as placeholders.
+2. Server:
+
    ```bash
-   cd server && npm install && npm run dev
+   cd server
+   npm install
+   npm test
+   npm run seed
+   npm run dev
    ```
-4. In another terminal start the UI:
+
+3. Client (Vite React, Hindi default via react-i18next):
+
    ```bash
-   cd client && npm install && npm run dev
+   cd client
+   npm install
+   npm run dev
    ```
-5. Open http://localhost:5173. Vite proxies `/api` to `http://localhost:4000`.
 
-## Implemented in this revision
-- Public scheme list API: `GET /api/schemes?lang=hi&district=Bhopal&need=Pension`
-- Public scheme detail API: `GET /api/schemes/:code?lang=hi`
-- Deterministic pre-screen API: `POST /api/schemes/eligibility/check`
-- Hindi-first responsive homepage, language toggle, scheme category filters and eligibility form.
-- Eligibility output is explicitly a possible match, not an official government decision.
+   Open http://localhost:5173 — you should see a Hindi heading and a language toggle.
+   `/api` requests are proxied to the server at http://localhost:4000.
 
-Example request:
-```json
-{
-  "age": 42,
-  "district": "Bhopal",
-  "lang": "hi",
-  "answers": {
-    "gender": "female",
-    "maritalStatus": "widow",
-    "documents": ["bpl_card"]
-  }
-}
-```
+4. PDF Hindi smoke check (needs Noto Sans Devanagari under `server/assets/fonts/`):
 
-## Demo-data warning
-The bundled scheme records are illustrative seed data. Several records use placeholder `example.gov.in` source URLs and must not be represented as verified government schemes. Replace them with verified official scheme details and source URLs before any public launch. The eligibility checker is a preliminary rule-based filter only.
+   ```bash
+   cd server
+   npm run pdf-smoke
+   ```
 
-## Existing demo seed accounts
-The seed script creates `admin@seva.test` and `donor@seva.test`, both with password `DemoPass123`. The seed script currently clears collections; use only with a disposable development database. Do not run it against production data.
+   Writes `scripts/out/smoke.pdf`.
 
-## Remaining implementation phases
-1. Donation creation and mock-payment confirmation with idempotency.
-2. Transaction-safe receipt numbering, PDF receipt generation and retry handling.
-3. Donor dashboard and donation history.
-4. Admin scheme/campaign editor, approval workflow and audit trail.
-5. Donation reports, export, security hardening and concurrency/load tests.
+Seed admin: `admin@seva.example` / `ChangeMeAdmin1`  
+Seed donor: `donor@seva.example` / `ChangeMeDonor1`
 
-## Security notes
-- Never use default JWT secrets in production.
-- Do not store PAN as plaintext; implement authenticated encryption or avoid retaining it where not needed.
-- Do not expose private donor records or receipt PDFs through public URLs.
-- Mock payment status is not a real payment confirmation.
-- Obtain legal/accounting review before issuing actual 80G certificates or claiming tax deductibility.
+## Safety
+
+Payments are mocked. Trust PAN and 80G numbers come from environment variables. AI-generated copy stays a draft until an admin approves it. Donor PAN is masked in the UI (`ABCDE****F`).

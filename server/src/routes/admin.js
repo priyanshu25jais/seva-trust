@@ -1,9 +1,14 @@
-const express = require("express");
-
-const router = express.Router();
-
-router.get("/ping", (_req, res) => {
-  res.json({ ok: true });
-});
-
-module.exports = router;
+const router=require("express").Router();
+const c=require("../controllers/adminController");
+router.get("/ping",(_req,res)=>res.json({ok:true}));
+router.get("/summary",c.summary);
+router.get("/campaigns",c.listCampaigns);
+router.post("/campaigns",c.createCampaign);
+router.patch("/campaigns/:id",c.updateCampaign);
+router.get("/donations",c.listDonations);
+router.get("/donations/export.csv",c.exportDonations);
+router.get("/schemes",c.listSchemes);
+router.post("/schemes",c.saveScheme);
+router.patch("/schemes/:id",c.saveScheme);
+router.post("/schemes/:id/publish",c.publishScheme);
+module.exports=router;

@@ -1,7 +1,6 @@
-const express = require("express");
-const { listSchemes, getScheme, checkEligibility } = require("../controllers/schemeController");
-const router = express.Router();
-router.get("/", listSchemes);
-router.get("/:code", getScheme);
-router.post("/eligibility/check", checkEligibility);
-module.exports = router;
+const router=require("express").Router();
+const c=require("../controllers/schemeController");
+router.get("/",c.listSchemes);
+router.post("/eligibility/check",c.checkEligibility);
+router.get("/:code",c.getScheme);
+module.exports=router;

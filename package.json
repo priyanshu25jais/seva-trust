@@ -5,6 +5,7 @@
     "server": "npm run dev --prefix server",
     "client": "npm run dev --prefix client",
     "test": "npm test --prefix server",
-    "pdf-smoke": "node scripts/pdf-smoke.js"
+    "pdf-smoke": "node scripts/pdf-smoke.js",
+    "seed": "npm run seed --prefix server"
   }
 }
