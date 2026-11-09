@@ -1,0 +1,43 @@
+{
+  "when": "2026-11-07T08:12:00.081Z",
+  "target": "http://localhost:4100",
+  "totalDonations": 1000,
+  "concurrency": 5,
+  "durationSeconds": 27,
+  "donationsPerSecond": 37.1,
+  "receiptsIssued": 1000,
+  "uniqueReceiptNumbers": 1000,
+  "errors": 0,
+  "errorSamples": [],
+  "retryMismatches": 0,
+  "latencyMs": {
+    "createDonation": {
+      "count": 1000,
+      "p50": 14.2,
+      "p95": 30.9,
+      "p99": 85.2,
+      "max": 107.6
+    },
+    "confirm": {
+      "count": 1000,
+      "p50": 84.1,
+      "p95": 207.9,
+      "p99": 275.3,
+      "max": 365.4
+    },
+    "confirmRetry": {
+      "count": 531,
+      "p50": 13.6,
+      "p95": 26.2,
+      "p99": 62.5,
+      "max": 93.5
+    },
+    "pdf": {
+      "count": 90,
+      "p50": 78.9,
+      "p95": 111.6,
+      "p99": 153.4,
+      "max": 153.4
+    }
+  }
+}

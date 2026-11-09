@@ -1,0 +1,20 @@
+Output of: npm run verify:receipts   (after both load-test runs, same database)
+
+{
+  "totalReceipts": 6000,
+  "financialYears": {
+    "2026-27": {
+      "receipts": 6000,
+      "firstSeq": 1,
+      "lastSeq": 6000,
+      "counter": 6000,
+      "missingNumbers": []
+    }
+  },
+  "problems": [],
+  "paidDonations": 6000,
+  "paidWithoutReceipt": 0,
+  "receiptsForUnpaidDonations": 0
+}
+
+RESULT: OK (0 duplicates, 0 missing numbers)

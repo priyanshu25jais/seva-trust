@@ -1,0 +1,18 @@
+{
+  "when": "2026-11-07T08:11:11.390Z",
+  "target": "http://localhost:4100 (sandbox: Node 22, MongoDB 7.0.34 single-node replica set on the same machine)",
+  "totalDonations": 5000,
+  "concurrency": 50,
+  "durationSeconds": 139.3,
+  "donationsPerSecond": 35.9,
+  "receiptsIssued": 5000,
+  "uniqueReceiptNumbers": 5000,
+  "errors": 0,
+  "retryMismatches": 0,
+  "latencyMs": {
+    "createDonation": { "count": 5000, "p50": 13.9, "p95": 38, "p99": 243.2, "max": 661.9 },
+    "confirm": { "count": 5000, "p50": 1327.1, "p95": 1768.6, "p99": 2039.2, "max": 2881.8 },
+    "confirmRetry": { "count": 3126, "p50": 14, "p95": 27.8, "p99": 57.5, "max": 138.8 },
+    "pdf": { "count": 474, "p50": 78.1, "p95": 123.6, "p99": 193.3, "max": 348.4 }
+  }
+}
