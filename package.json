@@ -2,10 +2,17 @@
   "name": "seva-trust",
   "private": true,
   "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
     "server": "npm run dev --prefix server",
     "client": "npm run dev --prefix client",
-    "test": "npm test --prefix server",
-    "pdf-smoke": "node scripts/pdf-smoke.js",
-    "seed": "npm run seed --prefix server"
+    "build": "npm run build --prefix client",
+    "start": "npm start --prefix server",
+    "seed": "npm run seed --prefix server",
+    "test": "npm test --prefix server && npm test --prefix client",
+    "test:server": "npm test --prefix server",
+    "test:client": "npm test --prefix client",
+    "verify:receipts": "npm run verify:receipts --prefix server",
+    "loadtest": "node scripts/loadtest.js",
+    "pdf-smoke": "node scripts/pdf-smoke.js"
   }
 }
