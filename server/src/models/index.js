@@ -5,6 +5,7 @@ const Donation = require("./Donation");
 const Receipt = require("./Receipt");
 const Counter = require("./Counter");
 const Subscription = require("./Subscription");
+const CallbackRequest = require("./CallbackRequest");
 
 module.exports = {
   Scheme,
@@ -14,4 +15,5 @@ module.exports = {
   Receipt,
   Counter,
   Subscription,
+  CallbackRequest,
 };

@@ -44,6 +44,9 @@ const schemeSchema = new mongoose.Schema(
       default: "none",
     },
     summaryFlags: { type: [String], default: [] },
+    // Official notice text pasted by an editor. Admin-only: never sent to the public API.
+    summaryNotice: { type: String, default: "", select: false },
+    summaryProvider: { type: String, default: "" },
     status: {
       type: String,
       enum: ["draft", "review", "published"],
