@@ -1,25 +1,153 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-const API="/api";
-const labels={hi:{home:"सेवा ट्रस्ट",tag:"साथ, सम्मान और सशक्तिकरण",title:"सही सहायता तक पहुँचें।",sub:"महिलाओं के लिए योजनाएँ खोजें और सामाजिक बदलाव में योगदान दें।",finder:"योजना पात्रता जाँचें",schemes:"उपलब्ध योजनाएँ",donate:"दान करें",district:"जिला",age:"उम्र",marital:"वैवाहिक स्थिति",widow:"विधवा",married:"विवाहित",single:"अविवाहित",docs:"आपके पास कौन से दस्तावेज़ हैं?",check:"संभावित योजनाएँ देखें",all:"सभी",pension:"पेंशन",livelihood:"आजीविका",health:"स्वास्थ्य",amount:"दान राशि (₹)",name:"पूरा नाम",email:"ईमेल",pan:"PAN (वैकल्पिक)",campaign:"अभियान",monthly:"मासिक दान",one:"एक बार",pay:"डेमो भुगतान करें",login:"लॉगिन",register:"खाता बनाएँ",password:"पासवर्ड",history:"मेरे दान",logout:"लॉगआउट",possible:"संभावित मिलान",disclaimer:"यह शुरुआती जाँच है, सरकारी पात्रता का अंतिम निर्णय नहीं।",loading:"लोड हो रहा है…",no:"कोई मिलान नहीं मिला।",success:"दान सफल! आपकी रसीद तैयार है।",error:"अनुरोध पूरा नहीं हो सका।",dashboard:"डोनर खाता",admin:"एडमिन",footer:"कृपया आवेदन से पहले संबंधित विभाग से जानकारी सत्यापित करें।"},
-en:{home:"Seva Trust",tag:"Support, dignity and empowerment",title:"Find the support you deserve.",sub:"Explore welfare schemes for women and contribute to meaningful change.",finder:"Check scheme eligibility",schemes:"Available schemes",donate:"Donate",district:"District",age:"Age",marital:"Marital status",widow:"Widowed",married:"Married",single:"Single",docs:"Which documents do you have?",check:"Find possible matches",all:"All",pension:"Pension",livelihood:"Livelihood",health:"Health",amount:"Donation amount (₹)",name:"Full name",email:"Email",pan:"PAN (optional)",campaign:"Campaign",monthly:"Monthly",one:"One-time",pay:"Make demo payment",login:"Login",register:"Create account",password:"Password",history:"My donations",logout:"Logout",possible:"Possible matches",disclaimer:"Initial screening only; not an official eligibility decision.",loading:"Loading…",no:"No possible matches found.",success:"Donation successful! Your receipt is ready.",error:"The request could not be completed.",dashboard:"Donor account",admin:"Admin",footer:"Please verify details with the responsible department before applying."}};
-const districts=["Bhopal","Indore","Jabalpur","Gwalior","Sagar"];
-export default function Home(){
- const {i18n}=useTranslation(),lang=i18n.language==="en"?"en":"hi",t=labels[lang];
- const [schemes,setSchemes]=useState([]),[campaigns,setCampaigns]=useState([]),[need,setNeed]=useState(""),[district,setDistrict]=useState("Bhopal"),[age,setAge]=useState(30),[marital,setMarital]=useState("widow"),[docs,setDocs]=useState(["bpl_card"]),[matches,setMatches]=useState(null),[token,setToken]=useState(localStorage.getItem("seva_token")||""),[user,setUser]=useState(null),[auth,setAuth]=useState({name:"",email:"",password:""}),[donation,setDonation]=useState({amount:500,donorName:"",donorEmail:"",donorPan:"",campaign:"",type:"one-time"}),[history,setHistory]=useState([]),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[adminData,setAdminData]=useState(null),[adminRows,setAdminRows]=useState([]),[lastReceipt,setLastReceipt]=useState(null);
- const headers=()=>({"Content-Type":"application/json",...(token?{Authorization:`Bearer ${token}`}:{})});
- useEffect(()=>{fetch(`${API}/schemes?lang=${lang}`).then(r=>r.json()).then(d=>setSchemes(d.schemes||[])).catch(()=>{});fetch(`${API}/donations/campaigns`).then(r=>r.json()).then(d=>{setCampaigns(d.campaigns||[]);if(d.campaigns?.[0])setDonation(v=>({...v,campaign:d.campaigns[0]._id}));}).catch(()=>{});},[lang]);
- useEffect(()=>{if(token){fetch(`${API}/me`,{headers:headers()}).then(r=>r.ok?r.json():Promise.reject()).then(d=>setUser(d.user)).catch(()=>logout());}},[]);
- function logout(){localStorage.removeItem("seva_token");setToken("");setUser(null);setHistory([]);}
- async function check(e){e.preventDefault();setBusy(true);try{const r=await fetch(`${API}/schemes/eligibility/check`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({age,district,lang,answers:{gender:"female",maritalStatus:marital,documents:docs}})});const d=await r.json();if(!r.ok)throw Error(d.message);setMatches(d.results||[]);}catch(e){setNotice(e.message||t.error);}finally{setBusy(false);}}
- async function authSubmit(e){e.preventDefault();setBusy(true);try{const r=await fetch(`${API}/auth/${auth.name?"register":"login"}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(auth)});let d=await r.json();if(!r.ok)throw Error(d.message);if(auth.name){const lr=await fetch(`${API}/auth/login`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:auth.email,password:auth.password})});d=await lr.json();if(!lr.ok)throw Error(d.message);}localStorage.setItem("seva_token",d.token);setToken(d.token);setUser(d.user);setNotice("Signed in");}catch(e){setNotice(e.message||t.error);}finally{setBusy(false);}}
- async function loadAdmin(){const [a,b]=await Promise.all([fetch(`${API}/admin/summary`,{headers:headers()}),fetch(`${API}/admin/donations?limit=10`,{headers:headers()})]);const ad=await a.json(),bd=await b.json();if(!a.ok||!b.ok){setNotice(ad.message||bd.message||t.error);return;}setAdminData(ad);setAdminRows(bd.donations||[]);}
- async function loadHistory(){const r=await fetch(`${API}/donations/mine`,{headers:headers()});const d=await r.json();if(r.ok)setHistory(d.donations||[]);else setNotice(d.message||t.error);}
- async function donate(e){e.preventDefault();if(!token){setNotice("Please login before donating.");return;}setBusy(true);try{const key=crypto.randomUUID();const r=await fetch(`${API}/donations`,{method:"POST",headers:headers(),body:JSON.stringify({...donation,idempotencyKey:key})});const d=await r.json();if(!r.ok)throw Error(d.message);const paid=await fetch(`${API}/donations/${d.donation._id}/mock-payment`,{method:"POST",headers:headers()});const p=await paid.json();if(!paid.ok)throw Error(p.message);setLastReceipt(p.receipt);setNotice(`${t.success} ${p.receipt.receiptNo}`);await loadHistory();}catch(e){setNotice(e.message||t.error);}finally{setBusy(false);}}
- return <div className="shell"><header><a className="brand" href="#"><span className="mark">स</span><span>{t.home}<small>{t.tag}</small></span></a><nav><a href="#finder">{t.finder}</a><a href="#schemes">{t.schemes}</a><a href="#donate">{t.donate}</a></nav><div className="head-actions"><button className="lang" onClick={()=>i18n.changeLanguage(lang==="hi"?"en":"hi")}>{lang==="hi"?"EN":"हिंदी"}</button>{user?<button className="outline" onClick={logout}>{t.logout}</button>:<a className="outline" href="#account">{t.login}</a>}</div></header>
- <main><section className="hero"><div><span className="eyebrow">SEVA TRUST · BHOPAL</span><h1>{t.title}</h1><p>{t.sub}</p><a className="button" href="#finder">{t.finder} ↗</a></div><div className="hero-art"><span>✿</span><b>सशक्त महिला<br/>समृद्ध समाज</b></div></section>
- <section id="finder" className="section"><div className="section-title"><small>01 / FIND SUPPORT</small><h2>{t.finder}</h2></div><form className="panel" onSubmit={check}><div className="grid"><label>{t.district}<select value={district} onChange={e=>setDistrict(e.target.value)}>{districts.map(x=><option key={x}>{x}</option>)}</select></label><label>{t.age}<input type="number" min="1" max="120" value={age} onChange={e=>setAge(e.target.value)}/></label><label>{t.marital}<select value={marital} onChange={e=>setMarital(e.target.value)}><option value="widow">{t.widow}</option><option value="married">{t.married}</option><option value="single">{t.single}</option></select></label></div><fieldset><legend>{t.docs}</legend>{[["bpl_card","BPL card"],["registered_shg_membership","SHG membership"],["antenatal_registration","Health registration"],["income_certificate","Income certificate"]].map(([v,l])=><label className="check" key={v}><input type="checkbox" checked={docs.includes(v)} onChange={e=>setDocs(old=>e.target.checked?[...old,v]:old.filter(x=>x!==v))}/>{l}</label>)}</fieldset><button className="button" disabled={busy}>{busy?t.loading:t.check}</button>{matches&&<div className="results"><h3>{t.possible} ({matches.length})</h3>{matches.length?matches.map(m=><article key={m.code}><b>{m.title}</b><p>{m.benefit}</p><small>{m.code}</small></article>):<p>{t.no}</p>}<small>{t.disclaimer}</small></div>}</form></section>
- <section id="schemes" className="section"><div className="section-title"><small>02 / WELFARE DIRECTORY</small><h2>{t.schemes}</h2></div><div className="filters"><button className={!need?"selected":""} onClick={()=>setNeed("")}>{t.all}</button>{["Pension","Livelihood","Health"].map(x=><button className={need===x?"selected":""} key={x} onClick={()=>setNeed(x)}>{t[x.toLowerCase()]}</button>)}</div><div className="cards">{schemes.filter(s=>!need||s.need===need).map((s,i)=><article className="scheme" key={s.code}><span className="symbol">{["♡","✿","✚"][i%3]}</span><small>{s.need}</small><h3>{s.title}</h3><p>{s.benefit}</p><b>{s.code}</b></article>)}</div></section>
- <section id="donate" className="section"><div className="section-title"><small>03 / SUPPORT THE WORK</small><h2>{t.donate}</h2><p>Demo mode: no real money is collected.</p></div><form className="panel" onSubmit={donate}><div className="grid"><label>{t.campaign}<select required value={donation.campaign} onChange={e=>setDonation({...donation,campaign:e.target.value})}><option value="">Select campaign</option>{campaigns.map(c=><option key={c._id} value={c._id}>{c.title?.[lang]||c.title?.en}</option>)}</select></label><label>{t.amount}<input type="number" min="1" max="1000000" value={donation.amount} onChange={e=>setDonation({...donation,amount:e.target.value})}/></label><label>{t.name}<input required value={donation.donorName} onChange={e=>setDonation({...donation,donorName:e.target.value})}/></label><label>{t.email}<input type="email" required value={donation.donorEmail} onChange={e=>setDonation({...donation,donorEmail:e.target.value})}/></label><label>{t.pan}<input maxLength="10" value={donation.donorPan} onChange={e=>setDonation({...donation,donorPan:e.target.value.toUpperCase()})}/></label><label>Frequency<select value={donation.type} onChange={e=>setDonation({...donation,type:e.target.value})}><option value="one-time">{t.one}</option><option value="monthly">{t.monthly}</option></select></label></div><button className="button" disabled={busy}>{t.pay}</button><small className="hint">Mock payment only. Monthly donations are recorded as a preference; recurring payment collection is not connected.</small></form></section>
- <section id="account" className="section account"><div className="section-title"><small>04 / YOUR ACCOUNT</small><h2>{t.dashboard}</h2></div>{user?<div className="panel"><b>{user.name}</b><p>{user.email}</p><button className="outline" onClick={loadHistory}>{t.history}</button>{history.map(d=><article className="history" key={d._id}><b>₹{d.amount}</b><span>{d.status}</span><small>{d.campaign?.title?.en}</small></article>)}{lastReceipt&&<p><a className="button" href={`${API}/donations/receipts/${lastReceipt.id}/pdf`} target="_blank" rel="noreferrer">Download receipt {lastReceipt.receiptNo}</a></p>}</div>:<form className="panel auth" onSubmit={authSubmit}><label>{t.name}<input value={auth.name} onChange={e=>setAuth({...auth,name:e.target.value})} placeholder="For registration only"/></label><label>{t.email}<input type="email" required value={auth.email} onChange={e=>setAuth({...auth,email:e.target.value})}/></label><label>{t.password}<input type="password" minLength="8" required value={auth.password} onChange={e=>setAuth({...auth,password:e.target.value})}/></label><button className="button">{auth.name?t.register:t.login}</button><small>Enter a name to register; leave it blank to login.</small></form>}</section>{user?.role==="admin"&&<section className="section"><div className="section-title"><small>05 / TRUST MANAGEMENT</small><h2>{t.admin} dashboard</h2></div><button className="button" onClick={loadAdmin}>Load admin dashboard</button>{adminData&&<div className="cards"><article className="scheme"><small>Total raised</small><h3>₹{adminData.totalRaised?.toLocaleString("en-IN")}</h3></article><article className="scheme"><small>Paid donations</small><h3>{adminData.paidDonations}</h3></article><article className="scheme"><small>Pending / donors / receipts</small><h3>{adminData.pendingDonations} / {adminData.donors} / {adminData.receipts}</h3></article></div>}{adminRows.map(d=><article className="history" key={d._id}><b>{d.donorName}</b><span>₹{d.amount}</span><small>{d.status}</small></article>)}{adminData&&<a className="button" href={`${API}/admin/donations/export.csv`} onClick={e=>{e.preventDefault();fetch(`${API}/admin/donations/export.csv`,{headers:headers()}).then(r=>r.blob()).then(blob=>{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="donations-export.csv";a.click();URL.revokeObjectURL(url);});}}>Export donation CSV</a>}</section>}{notice&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}</main><footer><span>© Seva Trust · Bhopal</span><span>{t.footer}</span></footer></div>;
+import { Icon } from "../components/Icons.jsx";
+import { SchemeCard } from "../components/SchemeCard.jsx";
+import { EmptyState, ErrorState, Loading } from "../components/States.jsx";
+import { SelectField } from "../components/Field.jsx";
+import { usePageTitle } from "../components/Layout.jsx";
+import { api } from "../lib/api.js";
+import { formatRupees, pick } from "../lib/format.js";
+import { useApi } from "../lib/useApi.js";
+
+const NEEDS = ["all", "Pension", "Livelihood", "Health"];
+
+export default function Home() {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const [need, setNeed] = useState("all");
+  const [district, setDistrict] = useState("");
+  usePageTitle(t("home.title"));
+
+  const meta = useApi(() => api.get("/api/meta"), []);
+  const schemes = useApi(() => {
+    const params = new URLSearchParams();
+    if (need !== "all") params.set("need", need);
+    if (district) params.set("district", district);
+    return api.get(`/api/schemes?${params.toString()}`);
+  }, [need, district]);
+  const campaigns = useApi(() => api.get("/api/campaigns"), []);
+
+  const districts = useMemo(() => meta.data?.districts || [], [meta.data]);
+  const list = schemes.data?.schemes || [];
+  const filtered = need !== "all" || district;
+
+  return (
+    <div className="container wide stack">
+      <section className="hero" aria-labelledby="home-h">
+        <h1 id="home-h">{t("home.headline")}</h1>
+        <p className="lead">{t("home.lead")}</p>
+      </section>
+
+      <section className="finder-cta" aria-labelledby="finder-h">
+        <h2 id="finder-h">{t("home.finderTitle")}</h2>
+        <div>
+          <Link to="/finder" className="btn">
+            {t("home.finderButton")} <Icon name="arrow" size={20} />
+          </Link>
+        </div>
+      </section>
+
+      <section aria-labelledby="browse-h" className="stack-sm">
+        <h2 id="browse-h">{t("home.browse")}</h2>
+        <div className="needs" role="group" aria-label={t("home.browse")}>
+          {NEEDS.map((n) => (
+            <button key={n} type="button" className="need" aria-pressed={need === n} onClick={() => setNeed(n)}>
+              <Icon name={n} size={28} />
+              {t(`home.need.${n}`)}
+            </button>
+          ))}
+        </div>
+        <div style={{ maxWidth: "22rem" }}>
+          <SelectField label={t("home.district")} value={district} onChange={setDistrict}>
+            <option value="">{t("home.allDistricts")}</option>
+            {districts.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+
+        <div aria-live="polite">
+          {schemes.loading && <Loading rows={4} />}
+          {schemes.error && <ErrorState error={schemes.error} onRetry={schemes.reload} />}
+          {!schemes.loading && !schemes.error && (
+            <>
+              <p className="muted" style={{ margin: "0.5rem 0 1rem" }}>
+                {t("home.count", { count: list.length })}
+              </p>
+              {list.length === 0 ? (
+                <EmptyState
+                  icon="search"
+                  title={t("home.emptyTitle")}
+                  text={t("home.emptyHelp")}
+                  action={
+                    filtered ? (
+                      <button
+                        type="button"
+                        className="btn secondary"
+                        onClick={() => {
+                          setNeed("all");
+                          setDistrict("");
+                        }}
+                      >
+                        {t("home.reset")}
+                      </button>
+                    ) : null
+                  }
+                />
+              ) : (
+                <ul className="scheme-list">
+                  {list.map((s) => (
+                    <SchemeCard key={s.code} scheme={s} />
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="band" aria-labelledby="give-h">
+        <div>
+          <h2 id="give-h">{t("home.giveTitle")}</h2>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            {t("home.giveText")}
+          </p>
+        </div>
+        {campaigns.data?.campaigns?.length > 0 && (
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.9rem" }}>
+            {campaigns.data.campaigns.map((c) => {
+              const pct = c.goal ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
+              return (
+                <li key={c.slug}>
+                  <div className="row between" style={{ marginBottom: "0.3rem" }}>
+                    <strong>
+                      <Link to={`/campaigns/${c.slug}`}>{pick(c.title, lang)}</Link>
+                    </strong>
+                    <span className="small muted">{pct}%</span>
+                  </div>
+                  <div className="progress" role="img" aria-label={`${pct}%`}>
+                    <span style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className="small muted" style={{ margin: "0.3rem 0 0" }}>
+                    {t("home.raised", { raised: formatRupees(c.raised).slice(1), goal: formatRupees(c.goal).slice(1) })}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="row">
+          <Link to="/donate" className="btn">
+            {t("home.giveButton")}
+          </Link>
+          <Link to="/finder" className="btn ghost">
+            <Icon name="phone" size={20} /> {t("home.helpline")}
+          </Link>
+        </div>
+      </section>
+    </div>
+  );
 }
