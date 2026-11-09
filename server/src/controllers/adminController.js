@@ -1,12 +1,77 @@
-const {Campaign,Donation,Scheme,Receipt}=require("../models");
-const {httpError}=require("../middleware/errors");
-async function listCampaigns(_req,res,next){try{res.json({campaigns:await Campaign.find().sort({createdAt:-1}).lean()});}catch(e){next(e);}}
-async function createCampaign(req,res,next){try{const {slug,title,goal}=req.body;if(!slug||!title?.en||!title?.hi||!Number.isFinite(Number(goal))||Number(goal)<0)throw httpError(400,"Valid slug, bilingual title and goal are required","validation_error");const campaign=await Campaign.create({slug,title,goal:Number(goal),active:true});res.status(201).json({campaign});}catch(e){next(e);}}
-async function updateCampaign(req,res,next){try{const campaign=await Campaign.findByIdAndUpdate(req.params.id,{$set:req.body},{new:true,runValidators:true});if(!campaign)throw httpError(404,"Campaign not found","not_found");res.json({campaign});}catch(e){next(e);}}
-async function listDonations(req,res,next){try{const page=Math.max(1,Number(req.query.page)||1),limit=Math.min(100,Math.max(1,Number(req.query.limit)||25));const [donations,total]=await Promise.all([Donation.find().populate("campaign","title").sort({createdAt:-1}).skip((page-1)*limit).limit(limit).lean(),Donation.countDocuments()]);res.json({donations,total,page,limit});}catch(e){next(e);}}
-async function summary(_req,res,next){try{const [paid,pending,donors,receipts]=await Promise.all([Donation.aggregate([{$match:{status:"paid"}},{$group:{_id:null,total:{$sum:"$amount"},count:{$sum:1}}}]),Donation.countDocuments({status:"pending"}),Donation.distinct("donor"),Receipt.countDocuments()]);res.json({totalRaised:paid[0]?.total||0,paidDonations:paid[0]?.count||0,pendingDonations:pending,donors:donors.length,receipts});}catch(e){next(e);}}
-async function listSchemes(_req,res,next){try{res.json({schemes:await Scheme.find().sort({updatedAt:-1}).lean()});}catch(e){next(e);}}
-async function saveScheme(req,res,next){try{const data={...req.body,audit:[...(req.body.audit||[]),{by:req.user.id,action:req.params.id?"update":"create"}]};let s;if(req.params.id)s=await Scheme.findByIdAndUpdate(req.params.id,{$set:data},{new:true,runValidators:true});else s=await Scheme.create(data);if(!s)throw httpError(404,"Scheme not found","not_found");res.json({scheme:s});}catch(e){next(e);}}
-async function publishScheme(req,res,next){try{const s=await Scheme.findByIdAndUpdate(req.params.id,{$set:{status:"published"},$push:{audit:{by:req.user.id,action:"publish"}}},{new:true});if(!s)throw httpError(404,"Scheme not found","not_found");res.json({scheme:s});}catch(e){next(e);}}
-async function exportDonations(_req,res,next){try{const rows=await Donation.find({status:"paid"}).sort({createdAt:1}).lean();const header="donation_id,donor_name,donor_email,donor_pan,amount,status,created_at";const esc=v=>`"${String(v??"").replaceAll('"','""')}"`;const csv=[header,...rows.map(d=>[d._id,d.donorName,d.donorEmail,d.donorPan,d.amount,d.status,d.createdAt].map(esc).join(","))].join("\n");res.set({"Content-Type":"text/csv","Content-Disposition":"attachment; filename=donations-export.csv"}).send(csv);}catch(e){next(e);}}
-module.exports={listCampaigns,createCampaign,updateCampaign,listDonations,summary,listSchemes,saveScheme,publishScheme,exportDonations};
+const { CallbackRequest } = require("../models");
+const schemeAdmin = require("../services/schemeAdminService");
+const reportService = require("../services/reportService");
+const { httpError } = require("../middleware/errors");
+const { asyncHandler } = require("../utils/asyncHandler");
+
+const listSchemes = asyncHandler(async (req, res) => {
+  res.json({ schemes: await schemeAdmin.list(req.query) });
+});
+const getScheme = asyncHandler(async (req, res) => {
+  res.json({ scheme: await schemeAdmin.getOne(req.params.id) });
+});
+const createScheme = asyncHandler(async (req, res) => {
+  res.status(201).json({ scheme: await schemeAdmin.create(req.body, req.user.id) });
+});
+const updateScheme = asyncHandler(async (req, res) => {
+  res.json({ scheme: await schemeAdmin.update(req.params.id, req.body, req.user.id) });
+});
+const setStatus = asyncHandler(async (req, res) => {
+  res.json({ scheme: await schemeAdmin.setStatus(req.params.id, req.body.status, req.user.id) });
+});
+const aiSummary = asyncHandler(async (req, res) => {
+  res.json(await schemeAdmin.draftSummary(req.params.id, req.body.noticeText, req.user.id));
+});
+const approveSummary = asyncHandler(async (req, res) => {
+  res.json({ scheme: await schemeAdmin.approveSummary(req.params.id, req.body.summaryHi, req.user.id) });
+});
+const discardSummary = asyncHandler(async (req, res) => {
+  res.json({ scheme: await schemeAdmin.discardSummary(req.params.id, req.user.id) });
+});
+
+const campaignReport = asyncHandler(async (req, res) => {
+  res.json(await reportService.campaignReport(req.query));
+});
+
+const form10bd = asyncHandler(async (req, res) => {
+  const { csv } = await reportService.form10bdCsv(req.query.fy);
+  res.set({
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="form-10bd-${req.query.fy}.csv"`,
+    "Cache-Control": "private, no-store",
+  });
+  res.send(csv);
+});
+
+const listCallbacks = asyncHandler(async (_req, res) => {
+  res.json({ callbacks: await CallbackRequest.find().sort({ createdAt: -1 }).limit(100).lean() });
+});
+const updateCallback = asyncHandler(async (req, res) => {
+  const doc = await CallbackRequest.findByIdAndUpdate(
+    req.params.id,
+    { $set: { status: req.body.status } },
+    { new: true }
+  );
+  if (!doc) throw httpError(404, "Request not found", "not_found");
+  res.json({ callback: doc });
+});
+
+const runSubscriptions = asyncHandler(async (_req, res) => {
+  res.json(await reportService.processDueSubscriptions());
+});
+
+module.exports = {
+  listSchemes,
+  getScheme,
+  createScheme,
+  updateScheme,
+  setStatus,
+  aiSummary,
+  approveSummary,
+  discardSummary,
+  campaignReport,
+  form10bd,
+  listCallbacks,
+  updateCallback,
+  runSubscriptions,
+};
