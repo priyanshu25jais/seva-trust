@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",
+    "prettier": "^3.9.10",
     "vite": "^5.4.10"
   }
 }
