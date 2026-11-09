@@ -19,10 +19,12 @@ function authOptional(req, _res, next) {
   }
   try {
     req.user = jwt.verify(token, env.JWT_SECRET);
-    return next();
   } catch {
-    return next(httpError(401, "Invalid token", "unauthorized"));
+    // An expired or invalid token must not block a visitor from donating or from
+    // downloading a receipt with their donation key: treat the request as anonymous.
+    req.user = null;
   }
+  return next();
 }
 
 function requireAuth(req, _res, next) {

@@ -1,9 +1,81 @@
-const {Donation,Receipt,Campaign}=require("../models");
-const {createDonation,confirmMockPayment,createReceiptPdf}=require("../services/donationService");
-const {httpError}=require("../middleware/errors");
-async function campaigns(_req,res,next){try{res.json({campaigns:await Campaign.find({active:true}).sort({createdAt:-1}).lean()});}catch(e){next(e);}}
-async function create(req,res,next){try{const d=await createDonation(req.user,req.body);res.status(201).json({donation:d});}catch(e){next(e);}}
-async function mockPay(req,res,next){try{const receipt=await confirmMockPayment(req.user,req.params.id);res.json({status:"paid",receipt:{id:receipt._id,receiptNo:receipt.receiptNo,pdfUrl:`/api/donations/receipts/${receipt._id}/pdf`}});}catch(e){next(e);}}
-async function mine(req,res,next){try{const donations=await Donation.find({donor:req.user.id}).populate("campaign","title").sort({createdAt:-1}).lean();res.json({donations});}catch(e){next(e);}}
-async function receiptPdf(req,res,next){try{const r=await Receipt.findById(req.params.id);if(!r) throw httpError(404,"Receipt not found","not_found");const d=await Donation.findById(r.donation);if(!d||String(d.donor)!==req.user.id) throw httpError(403,"Not allowed","forbidden");const pdf=await createReceiptPdf(r);res.set({"Content-Type":"application/pdf","Content-Disposition":`attachment; filename="${r.receiptNo.replaceAll("/","-")}.pdf"`});res.send(pdf);}catch(e){next(e);}}
-module.exports={campaigns,create,mockPay,mine,receiptPdf};
+const crypto = require("crypto");
+const mongoose = require("mongoose");
+const { Receipt, Donation } = require("../models");
+const { env } = require("../config/env");
+const { httpError } = require("../middleware/errors");
+const donationService = require("../services/donationService");
+const paymentService = require("../services/paymentService");
+const { getReceiptPdf } = require("../services/pdfService");
+const { asyncHandler } = require("../utils/asyncHandler");
+
+const create = asyncHandler(async (req, res) => {
+  const { donation, campaign, created } = await donationService.createDonation(req.body, req.user);
+  res
+    .status(created ? 201 : 200)
+    .json({ donation: donationService.donationView(donation, null, campaign) });
+});
+
+const getByKey = asyncHandler(async (req, res) => {
+  res.json({ donation: await donationService.getDonationByKey(req.params.key) });
+});
+
+const payMock = asyncHandler(async (req, res) => {
+  const { receipt, created } = await paymentService.payWithMockCard(
+    req.body.idempotencyKey,
+    req.body.card
+  );
+  res.status(created ? 201 : 200).json({ receipt });
+});
+
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
+
+// Mock gateway webhook. Requires the shared secret so nobody can mark a donation paid.
+const webhookConfirm = asyncHandler(async (req, res) => {
+  if (!safeEqual(req.get("x-webhook-secret") || "", env.MOCK_WEBHOOK_SECRET)) {
+    throw httpError(401, "Invalid webhook secret", "unauthorized");
+  }
+  const { receipt, created } = await paymentService.confirmFromWebhook(req.body.idempotencyKey);
+  res.status(created ? 201 : 200).json({ receipt });
+});
+
+const myDonations = asyncHandler(async (req, res) => {
+  res.json({ donations: await donationService.listDonationsForDonor(req.user.id) });
+});
+
+/**
+ * Download the 80G certificate. Allowed for: the donor who owns the donation, an admin,
+ * or a guest who holds the donation's idempotency key (?key=...).
+ */
+const receiptPdf = asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    throw httpError(404, "Receipt not found", "not_found");
+  }
+  const receipt = await Receipt.findById(req.params.id);
+  if (!receipt) throw httpError(404, "Receipt not found", "not_found");
+  const donation = await Donation.findById(receipt.donation);
+
+  const user = req.user;
+  const isAdmin = user && user.role === "admin";
+  const isOwner = user && donation && donation.donor && donation.donor.toString() === user.id;
+  const hasKey = donation && req.query.key && safeEqual(req.query.key, donation.idempotencyKey);
+  if (!isAdmin && !isOwner && !hasKey) {
+    // 404 rather than 403 so receipt ids cannot be probed.
+    throw httpError(404, "Receipt not found", "not_found");
+  }
+
+  const pdf = await getReceiptPdf(receipt);
+  const filename = `80G-${receipt.receiptNo.replace(/\//g, "-")}.pdf`;
+  res.set({
+    "Content-Type": "application/pdf",
+    "Content-Length": pdf.length,
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Cache-Control": "private, no-store",
+  });
+  res.send(pdf);
+});
+
+module.exports = { create, getByKey, payMock, webhookConfirm, myDonations, receiptPdf };
