@@ -27,7 +27,7 @@ Screenshots are in `docs/screenshots`. The Technical Design Document explains th
 You need Node.js 20+ and a free MongoDB Atlas cluster (transactions need a replica set).
 
 ```bash
-git clone <your repo url> && cd seva-trust
+git clone https://github.com/priyanshu25jais/seva-trust && cd seva-trust
 npm run install:all                      # installs server and client
 cp .env.example server/.env              # then edit server/.env (MONGODB_URI, JWT_SECRET, MOCK_WEBHOOK_SECRET)
 npm run seed                             # fills the DEMO database (it clears it first!)
