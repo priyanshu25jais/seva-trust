@@ -13,7 +13,10 @@ const {
   Receipt,
   Counter,
   Subscription,
+  CallbackRequest,
 } = require("../models");
+const crypto = require("crypto");
+const { confirmDonation } = require("../services/receiptService");
 const { PAN_REGEX } = require("../utils/pan");
 
 const DEMO_PASSWORD = "DemoPass123";
@@ -505,6 +508,72 @@ const schemes = [
     status: "published",
     audit: publishedAudit(),
   },
+  {
+    // Illustrative assumption: a scheme in DRAFT so the admin review flow has data.
+    code: "SCH-071",
+    title: { hi: "किशोरी स्वच्छता सहायता", en: "Adolescent hygiene support" },
+    need: "Health",
+    districts: ["Indore", "Bhopal"],
+    eligibility: { gender: "female", minAge: 10, maxAge: 19 },
+    benefit: {
+      hi: "स्वच्छता किट निःशुल्क।",
+      en: "Free hygiene kit.",
+    },
+    whoCanApply: {
+      hi: "10 से 19 वर्ष की बालिकाएँ।",
+      en: "Girls aged 10 to 19.",
+    },
+    documents: [{ hi: "आधार कार्ड", en: "Aadhaar card" }],
+    howToApply: {
+      hi: "आंगनवाड़ी केंद्र पर संपर्क करें।",
+      en: "Contact the nearest anganwadi centre.",
+    },
+    helpCentre: {
+      name: "आंगनवाड़ी केंद्र, इंदौर",
+      district: "Indore",
+      address: "राजवाड़ा क्षेत्र, इंदौर",
+    },
+    sourceUrl: sourceUrl("SCH-071"),
+    lastChecked: new Date("2026-10-20"),
+    summaryHi: "",
+    summaryStatus: "none",
+    summaryFlags: [],
+    status: "draft",
+    audit: [{ by: "seed", at: new Date("2026-11-02T00:00:00.000Z"), action: "created as draft" }],
+  },
+  {
+    // Illustrative assumption: a scheme in REVIEW, waiting for an admin to publish.
+    code: "SCH-072",
+    title: { hi: "महिला बचत समूह प्रशिक्षण", en: "Women's savings group training" },
+    need: "Livelihood",
+    districts: ["Jabalpur", "Sagar"],
+    eligibility: { gender: "female", minAge: 18, maxAge: 60, requires: ["registered_shg_membership"] },
+    benefit: {
+      hi: "तीन दिन का निःशुल्क प्रशिक्षण और प्रमाण पत्र।",
+      en: "Three days of free training and a certificate.",
+    },
+    whoCanApply: {
+      hi: "18 से 60 वर्ष की स्व-सहायता समूह सदस्य।",
+      en: "Self-help group members aged 18 to 60.",
+    },
+    documents: [{ hi: "आधार कार्ड", en: "Aadhaar card" }, { hi: "समूह पहचान पत्र", en: "Group ID" }],
+    howToApply: {
+      hi: "ब्लॉक आजीविका मिशन कार्यालय में नाम दर्ज कराएँ।",
+      en: "Register at the block livelihood mission office.",
+    },
+    helpCentre: {
+      name: "ब्लॉक आजीविका मिशन, जबलपुर",
+      district: "Jabalpur",
+      address: "रानीताल, जबलपुर",
+    },
+    sourceUrl: sourceUrl("SCH-072"),
+    lastChecked: new Date("2026-10-28"),
+    summaryHi: "",
+    summaryStatus: "none",
+    summaryFlags: [],
+    status: "review",
+    audit: [{ by: "seed", at: new Date("2026-11-03T00:00:00.000Z"), action: "status: review" }],
+  },
 ];
 
 const campaigns = [
@@ -531,6 +600,7 @@ async function clearCollections() {
     Receipt.deleteMany({}),
     Counter.deleteMany({}),
     Subscription.deleteMany({}),
+    CallbackRequest.deleteMany({}),
   ]);
 }
 
@@ -546,15 +616,39 @@ function buildFakeDonors(passwordHash) {
       email: `donor${String(i).padStart(3, "0")}@seva.test`,
       passwordHash,
       role: "donor",
-      panEncrypted: pan,
+      pan: pan,
     });
   }
   return donors;
 }
 
+function seededDonationSpecs(demoDonor, fakeDonors, campaignDocs) {
+  const amounts = [100, 250, 500, 500, 1000, 1000, 2000, 2500, 5000];
+  const specs = [];
+  const day = 24 * 60 * 60 * 1000;
+  const start = new Date("2026-06-05T09:30:00.000Z").getTime();
+  const span = 150 * day;
+  const push = (user, i, type) =>
+    specs.push({
+      user,
+      campaign: campaignDocs[i % campaignDocs.length],
+      amount: amounts[(i * 7) % amounts.length],
+      type,
+      at: new Date(start + ((i * 37) % 100) * (span / 100)),
+    });
+  push(demoDonor, 0, "one-time");
+  push(demoDonor, 1, "monthly");
+  push(demoDonor, 2, "one-time");
+  fakeDonors.slice(0, 40).forEach((u, i) => push(u, i + 3, i % 7 === 0 ? "monthly" : "one-time"));
+  // Oldest first, so receipt numbers rise with receipt dates.
+  return specs.sort((a, b) => a.at - b.at);
+}
+
 async function seed() {
   if (process.env.SEED_RESET !== "true") {
-    throw new Error("Refusing to delete database data. Set SEED_RESET=true only for a disposable demo database.");
+    throw new Error(
+      "Refusing to delete database data. Set SEED_RESET=true only for a disposable demo database."
+    );
   }
   await connectDb();
   await clearCollections();
@@ -573,18 +667,41 @@ async function seed() {
       email: "donor@seva.test",
       passwordHash,
       role: "donor",
-      panEncrypted: "ABCDE1234F",
+      pan: "ABCDE1234F",
     },
   ]);
 
-  if (!PAN_REGEX.test(demoDonor.panEncrypted)) {
+  if (!PAN_REGEX.test(demoDonor.pan)) {
     throw new Error("Demo donor PAN is not valid format");
   }
 
   const fakeDonors = await User.insertMany(buildFakeDonors(passwordHash));
-  await Campaign.insertMany(campaigns);
+  const campaignDocs = await Campaign.insertMany(campaigns);
   await Scheme.insertMany(schemes);
 
+  // Sample paid donations with real receipts (issued through the same code as production).
+  for (const spec of seededDonationSpecs(demoDonor, fakeDonors, campaignDocs)) {
+    const key = crypto.randomUUID();
+    await Donation.create({
+      donor: spec.user._id,
+      campaign: spec.campaign._id,
+      amount: spec.amount,
+      type: spec.type,
+      status: "pending",
+      idempotencyKey: key,
+      donorName: spec.user.name,
+      donorEmail: spec.user.email,
+      donorPan: spec.user.pan,
+    });
+    await confirmDonation(key, { now: spec.at });
+  }
+
+  await CallbackRequest.create([
+    { name: "Sunita Devi", phone: "9000000001", schemeCode: "SCH-014", note: "Fake sample request", consent: true },
+    { name: "Meena Bai", phone: "9000000002", schemeCode: "SCH-031", note: "Fake sample request", consent: true, status: "called" },
+  ]);
+
+  const receiptCount = await Receipt.countDocuments();
   const schemeCount = await Scheme.countDocuments();
   const campaignCount = await Campaign.countDocuments();
   const userCount = await User.countDocuments();
@@ -597,7 +714,8 @@ async function seed() {
   }
 
   console.log("Seed complete.");
-  console.log(`Schemes: ${schemeCount} (all published: ${published.length === schemeCount})`);
+  console.log(`Schemes: ${schemeCount} (${published.length} published, 1 draft, 1 in review)`);
+  console.log(`Paid donations with receipts: ${receiptCount}`);
   console.log(`Campaigns: ${campaignCount}`);
   console.log(`Users: ${userCount} (1 admin, 1 demo donor, ${fakeDonors.length} fake donors)`);
   console.log(`Districts covered: ${[...districtSet].sort().join(", ")}`);
